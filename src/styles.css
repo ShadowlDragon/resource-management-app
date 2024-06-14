@@ -1,0 +1,263 @@
+/* General styles */
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 20px;
+  background: url('assets/logo.png') no-repeat center center fixed;
+  background-size: contain;
+  position: relative;
+  color: #ffffff !important;
+  -webkit-user-select: none;
+  background-color: #333 !important;
+  /* Disable text selection in WebKit browsers */
+  -moz-user-select: none;
+  /* Disable text selection in Firefox */
+  -ms-user-select: none;
+  /* Disable text selection in Internet Explorer/Edge */
+  user-select: none;
+  /* Disable text selection in modern browsers */
+}
+
+p {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: black;
+}
+
+input,
+button {
+  padding: 10px;
+  margin: 5px 0;
+  font-size: 16px;
+}
+
+input {
+  width: calc(100% - 22px);
+  box-sizing: border-box;
+}
+
+button {
+  background-color: #007BFF;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+/* Folder tree styles */
+.folder-tree {
+  margin-top: 20px;
+  font-family: Arial, sans-serif;
+  font-size: 18px;
+}
+
+.folder-tree ul {
+  list-style-type: none;
+  padding-left: 10px;
+}
+
+.folder-tree li {
+  margin: 5px 0;
+  cursor: pointer;
+  width: fit-content;
+}
+
+.folder-tree li span {
+  margin-left: 5px;
+}
+
+.folder-tree li ul {
+  display: none;
+}
+
+.folder-tree .expanded>ul {
+  display: block;
+}
+
+.folder-tree .folder>span::before {
+  content: '\f07b';
+  font-family: 'Font Awesome 5 Free';
+  font-weight: 900;
+  margin-right: 5px;
+  color: #007BFF;
+  /* Set the color of the folder icon */
+}
+
+.folder-tree .folder.expanded>span::before {
+  content: '\f07c';
+}
+
+.folder-tree .folder>span:after {
+  content: '\f0da';
+  font-family: 'Font Awesome 5 Free';
+  font-weight: 900;
+  margin-left: 5px;
+}
+
+.folder-tree .folder.expanded>span:after {
+  content: '\f0d7';
+}
+
+.folder-tree .file::before {
+  content: '\f15b';
+  font-family: 'Font Awesome 5 Free';
+  font-weight: 900;
+  margin-right: 5px;
+  color: #dcdc14;
+}
+
+/* Custom alert styles */
+#customAlert {
+  display: none;
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background-color: white;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  width: 300px;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+#customAlert.show {
+  display: block;
+  opacity: 1;
+}
+
+#customAlert.hide {
+  display: block;
+  opacity: 0;
+}
+
+#customAlert button {
+  margin-top: 10px;
+  padding: 10px 20px;
+  background-color: #007BFF;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+#customAlert button:hover {
+  background-color: #0056b3;
+}
+
+#alertOverlay {
+  display: none;
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+#alertOverlay.show {
+  display: block;
+  opacity: 1;
+}
+
+#alertOverlay.hide {
+  display: block;
+  opacity: 0;
+}
+
+.alert {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #f44336;
+  color: white;
+  padding: 15px;
+  border-radius: 5px;
+  z-index: 1000;
+}
+
+/* Loading indicator styles */
+#loadingIndicator {
+  display: none;
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 20px;
+  border-radius: 10px;
+  z-index: 2000;
+  text-align: center;
+  font-size: 16px;
+}
+
+/* Loading overlay styles */
+#loadingOverlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1999;
+}
+
+.favorite-icon {
+  padding-left: 5px;
+  display: none !important; /* Initially hide the star icon */
+}
+
+.favorite-icon-filled {
+  padding-left: 5px;
+  color: gold;
+}
+
+li:hover > .favorite-icon {
+  display: inline-block !important; /* Show the star icon when hovering over the list item */
+}
+
+#favorite {
+  overflow-x: auto;
+  white-space: nowrap;
+  height: 80px;
+}
+
+#favoriteTabs, #bookmarkTabs {
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+#favoriteTabs span,
+#bookmarkTabs span {
+  display: inline-block;
+  margin-right: 10px;
+  padding: 5px;
+  background-color: #007BFF;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+/* Style for the favorite tab spans on hover */
+#favoriteTabs span:hover,
+#bookmarkTabs span:hover {
+  background-color: #0056b3;
+}
+
+.remove-icon {
+  margin-left: 5px;
+  cursor: pointer;
+}

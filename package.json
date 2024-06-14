@@ -1,0 +1,15 @@
+{
+  "name": "resource-management",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^1.5.14"
+  },
+  "dependencies": {
+    "tauri-plugin-store-api": "github:tauri-apps/tauri-plugin-store#v1"
+  }
+}
