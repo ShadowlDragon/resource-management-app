@@ -43,26 +43,37 @@ function hideCustomAlert() {
 }
 
 async function browseFolder() {
-  const folderPath = await invoke('browse_folder');
+  folderPath = await invoke('browse_folder');
   if (folderPath) {
-    document.getElementById('folderPathInput').value = folderPath;
     renderFolderTree();
+  }
+}
+
+async function renderHomeFolder() {
+  folderPath = "\\\\172.16.10.81\\Resource_RNDS";
+
+  try {
+    const structure = await invoke('read_directory_async', { folderPath });
+    if (structure && structure.length > 0) {
+      // Sort the structure array using natural sorting
+      structure.sort(naturalCompare);
+      renderTree(document.getElementById('folderTree'), structure);
+    } else {
+      showCustomAlert('Folder not found or it is empty.');
+    }
+  } catch (error) {
+    console.error('Error reading directory:', error);
+    showCustomAlert(`Error reading directory: ${error}`);
+  } finally {
+    hideLoading();
   }
 }
 
 async function renderFolderTree() {
   showLoading();
-  let folderPath = document.getElementById('folderPathInput').value;
-
   if (isFirstLoad) {
     folderPath = "\\\\172.16.10.81\\Resource_RNDS";
     isFirstLoad = false;
-  }
-
-  if (!folderPath) {
-    showCustomAlert('Please enter a folder path.');
-    hideLoading();
-    return;
   }
 
   try {
@@ -103,6 +114,12 @@ function naturalCompare(a, b) {
 }
 
 function showLoading() {
+  // Blur the input field (focus out)
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput.value) {
+    searchInput.blur();       // Remove focus from the input field
+  }
+
   document.getElementById('loadingIndicator').style.display = 'block';
   document.getElementById('loadingOverlay').style.display = 'block';
 }
@@ -115,6 +132,7 @@ function hideLoading() {
 function renderTree(container, structure) {
   container.innerHTML = '';
   const ul = document.createElement('ul');
+  
   structure.forEach(node => {
     const li = document.createElement('li');
     li.className = node.is_directory ? 'folder' : 'file';
@@ -134,6 +152,7 @@ function renderTree(container, structure) {
     li.appendChild(starIcon);
     ul.appendChild(li);
   });
+
   container.appendChild(ul);
   addTreeEventListeners();
   addFavoriteClickEventListeners();
@@ -271,32 +290,34 @@ async function loadFolderContents(folderPath, parentLi) {
         ul.appendChild(li);
       });
       parentLi.appendChild(ul);
-      addTreeEventListeners();
-      addFavoriteClickEventListeners();
+    } else {
+      const emptyLi = document.createElement('li');
+      emptyLi.className = 'empty';
+      emptyLi.textContent = 'Empty folder';
+      const ul = document.createElement('ul');
+      ul.appendChild(emptyLi);
+      parentLi.appendChild(ul);
     }
   } catch (error) {
-    showCustomAlert('Error loading folder contents.');
+    console.error('Error reading directory:', error);
+    showCustomAlert(`Error reading directory: ${error}`);
   } finally {
     hideLoading();
   }
 }
 
 async function openFolder(folderPath) {
-  isExploring = true;
-  try {
+  if (folderPath) {
+    folderPath = folderPath.replace(/\\/g, '\\\\');
+    isExploring = true;
     await invoke('open_folder', { folderPath });
-  } catch (error) {
-    showCustomAlert('Error opening folder.');
-  } finally {
     isExploring = false;
   }
 }
 
 async function openFile(filePath) {
-  try {
+  if (filePath) {
     await invoke('open_file', { filePath });
-  } catch (error) {
-    showCustomAlert('Error opening file.');
   }
 }
 
@@ -332,22 +353,69 @@ async function renderFolderTreeForFavoriteAndBookmark(folderPath) {
   }
 }
 
-async function saveFavoritesLocally() {
-  try {
-    await invoke('save_favorites', { favorites });
-    console.log('Favorite folders saved locally.');
-  } catch (error) {
-    console.error('Error saving favorite folders:', error);
+async function loadFavoritesLocally() {
+  const favorites = localStorage.getItem('favorites');
+  return favorites ? JSON.parse(favorites) : [];
+}
+
+function saveFavoritesLocally() {
+  localStorage.setItem('favorites', JSON.stringify(favorites));
+}
+
+async function performSearch() {
+  let searchTerm = document.getElementById('searchInput').value;
+
+  if (searchTerm) {
+    showLoading();
+    try {
+      const folderPath = "D:\\Long\\Work"; // Default path, or you can get it dynamically
+      const results = await invoke('search_directory', { folderPath, searchTerm });
+      if (results.length > 0) {
+        showSearchResultsDropdown(results);
+      } else {
+        showCustomAlert('No matches found.');
+      }
+    } catch (error) {
+      console.error('Error searching directory:', error);
+      showCustomAlert(`Error searching directory: ${error}`);
+    } finally {
+      hideLoading();
+    }
+  } else {
+    return;
   }
 }
 
-async function loadFavoritesLocally() {
-  try {
-    const loadedFavorites = await invoke('load_favorites');
-    loadedFavorites.forEach(favorite => addFavorite(favorite));
-    return loadedFavorites;
-  } catch (error) {
-    console.error('Error loading favorite folders:', error);
-    return [];
-  }
+function showSearchResultsDropdown(results) {
+  const dropdown = document.getElementById('searchResultsDropdown');
+  dropdown.innerHTML = ''; // Clear existing options
+  
+  results.forEach((result) => {
+    const option = document.createElement('div');
+    option.classList.add('search-result-item');
+    option.textContent = result.name + (result.is_directory ? ' [Folder]' : ' [File]') + " (" + result.path + ")";
+    option.dataset.path = result.path;
+    option.addEventListener('click', () => {
+      handleSearchResultClick(result);
+    });
+    dropdown.appendChild(option);
+  });
+
+  dropdown.style.display = 'block';
 }
+
+function handleSearchResultClick(result) {
+  const dropdown = document.getElementById('searchResultsDropdown');
+  dropdown.style.display = 'none';
+  folderPath = result.path;
+
+  renderFolderTree();
+}
+
+document.addEventListener('click', (event) => {
+  const dropdown = document.getElementById('searchResultsDropdown');
+  if (!dropdown.contains(event.target)) {
+    dropdown.style.display = 'none';
+  }
+});
+

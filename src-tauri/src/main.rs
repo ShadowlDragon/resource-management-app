@@ -6,6 +6,7 @@
 use std::{fs, path::Path};
 use tokio::process::Command;
 use serde::{Deserialize, Serialize};
+use std::collections::VecDeque;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct FavoriteFolder {
@@ -115,6 +116,45 @@ async fn browse_folder() -> Result<Option<String>, String> {
     Ok(dialog.map(|p| p.to_string_lossy().to_string()))
 }
 
+#[derive(Serialize)]
+struct SearchResult {
+    name: String,
+    path: String,
+    is_directory: bool,
+}
+
+#[tauri::command]
+async fn search_directory(folder_path: String, search_term: String) -> Result<Vec<SearchResult>, String> {
+    let mut results = Vec::new();
+    let mut queue = VecDeque::new();
+    queue.push_back(folder_path);
+
+    while let Some(current_folder) = queue.pop_front() {
+        let entries = fs::read_dir(&current_folder).map_err(|e| e.to_string())?;
+
+        for entry in entries {
+            let entry = entry.map_err(|e| e.to_string())?;
+            let path = entry.path();
+            let metadata = fs::metadata(&path).map_err(|e| e.to_string())?;
+
+            let name = entry.file_name().to_string_lossy().to_lowercase();
+            if name.contains(&search_term.to_lowercase()) {
+                results.push(SearchResult {
+                    name: entry.file_name().to_string_lossy().to_string(),
+                    path: path.to_string_lossy().to_string(),
+                    is_directory: metadata.is_dir(),
+                });
+            }
+
+            if metadata.is_dir() {
+                queue.push_back(path.to_string_lossy().to_string());
+            }
+        }
+    }
+
+    Ok(results)
+}
+
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
@@ -123,7 +163,8 @@ fn main() {
             browse_folder,
             open_file,
             save_favorites,
-            load_favorites
+            load_favorites,
+            search_directory,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
