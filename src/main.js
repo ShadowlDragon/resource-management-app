@@ -9,6 +9,23 @@ let isFirstLoad = true;
 document.addEventListener('DOMContentLoaded', async () => {
   favorites = await loadFavoritesLocally();
   renderFolderTree();
+
+  // Add event listener to listen for search results
+  window.__TAURI__.event.listen('search_result', (event) => {
+    const result = event.payload;
+    if (result) {
+      // Append each search result to the dropdown as it arrives
+      appendSearchResult(result);
+    }
+  });
+
+  // Add event listener for hitting "Enter" to perform search
+  const searchInput = document.getElementById('searchInput');
+  searchInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      performSearch();
+    }
+  });
 });
 
 function showCustomAlert(message) {
@@ -114,12 +131,6 @@ function naturalCompare(a, b) {
 }
 
 function showLoading() {
-  // Blur the input field (focus out)
-  const searchInput = document.getElementById('searchInput');
-  if (searchInput.value) {
-    searchInput.blur();       // Remove focus from the input field
-  }
-
   document.getElementById('loadingIndicator').style.display = 'block';
   document.getElementById('loadingOverlay').style.display = 'block';
 }
@@ -132,7 +143,7 @@ function hideLoading() {
 function renderTree(container, structure) {
   container.innerHTML = '';
   const ul = document.createElement('ul');
-  
+
   structure.forEach(node => {
     const li = document.createElement('li');
     li.className = node.is_directory ? 'folder' : 'file';
@@ -362,45 +373,64 @@ function saveFavoritesLocally() {
   localStorage.setItem('favorites', JSON.stringify(favorites));
 }
 
-async function performSearch() {
-  let searchTerm = document.getElementById('searchInput').value;
+let searchHandle = null;
 
-  if (searchTerm) {
-    showLoading();
-    try {
-      const folderPath = "D:\\Long\\Work"; // Default path, or you can get it dynamically
-      const results = await invoke('search_directory', { folderPath, searchTerm });
-      if (results.length > 0) {
-        showSearchResultsDropdown(results);
-      } else {
-        showCustomAlert('No matches found.');
-      }
-    } catch (error) {
-      console.error('Error searching directory:', error);
-      showCustomAlert(`Error searching directory: ${error}`);
-    } finally {
-      hideLoading();
-    }
-  } else {
+async function cancelSearch() {
+  await invoke('cancel_search');
+  searchHandle = null;
+
+  // Clear previous search results if the search input is empty
+  const dropdown = document.getElementById('searchResultsDropdown');
+  dropdown.innerHTML = ''; // Clear the dropdown
+  dropdown.style.display = 'none'; // Hide the dropdown
+  document.getElementById('searchInput').disabled = false;
+  document.getElementById('searchButton').style.display = 'block';
+  document.getElementById('cancelButton').style.display = 'none';
+}
+
+async function performSearch() {
+  let searchTerm = document.getElementById('searchInput').value.trim();
+
+  // Cancel previous search if any
+  if (searchHandle) {
+    cancelSearch();
+  }
+
+  if (searchTerm === '') {
     return;
+  }
+
+  try {
+    document.getElementById('searchInput').disabled = true;
+    document.getElementById('searchButton').style.display = 'none';
+    document.getElementById('cancelButton').style.display = 'block';
+
+    const folderPath = "\\\\172.16.10.81\\Resource_RNDS"; // Default path, or you can get it dynamically
+    searchHandle = await invoke('search_directory', { folderPath, searchTerm });
+  } catch (error) {
+    console.error('Error searching directory:', error);
+
+    // Show the error message to the user
+    showCustomAlert(`Error: ${error.message || error}`);
+  } finally {
+    document.getElementById('searchInput').disabled = false;
+    document.getElementById('searchButton').style.display = 'block';
+    document.getElementById('cancelButton').style.display = 'none';
   }
 }
 
-function showSearchResultsDropdown(results) {
+function appendSearchResult(result) {
   const dropdown = document.getElementById('searchResultsDropdown');
-  dropdown.innerHTML = ''; // Clear existing options
-  
-  results.forEach((result) => {
-    const option = document.createElement('div');
-    option.classList.add('search-result-item');
-    option.textContent = result.name + (result.is_directory ? ' [Folder]' : ' [File]') + " (" + result.path + ")";
-    option.dataset.path = result.path;
-    option.addEventListener('click', () => {
-      handleSearchResultClick(result);
-    });
-    dropdown.appendChild(option);
+  const option = document.createElement('div');
+  option.classList.add('search-result-item');
+  option.textContent = result.name + (result.is_directory ? ' [Folder]' : ' [File]') + " (" + result.path + ")";
+  option.dataset.path = result.path;
+  option.addEventListener('click', () => {
+    handleSearchResultClick(result);
   });
+  dropdown.appendChild(option);
 
+  // Ensure dropdown is visible
   dropdown.style.display = 'block';
 }
 
@@ -409,7 +439,9 @@ function handleSearchResultClick(result) {
   dropdown.style.display = 'none';
   folderPath = result.path;
 
+  // Re-render the folder tree at the selected path
   renderFolderTree();
+  cancelSearch();
 }
 
 document.addEventListener('click', (event) => {

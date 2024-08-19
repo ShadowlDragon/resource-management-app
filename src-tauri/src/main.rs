@@ -6,9 +6,10 @@
 use std::{fs, path::Path};
 use tokio::process::Command;
 use serde::{Deserialize, Serialize};
-use std::collections::VecDeque;
+use std::sync::{Arc};
+use std::sync::atomic::{AtomicBool, Ordering};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]  // Add `Clone` here
 struct FavoriteFolder {
     name: String,
     path: String,
@@ -116,34 +117,54 @@ async fn browse_folder() -> Result<Option<String>, String> {
     Ok(dialog.map(|p| p.to_string_lossy().to_string()))
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]  // Add `Clone` here
 struct SearchResult {
     name: String,
     path: String,
     is_directory: bool,
 }
 
+lazy_static::lazy_static! {
+    static ref SEARCH_CANCELLED: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
+}
+
 #[tauri::command]
-async fn search_directory(folder_path: String, search_term: String) -> Result<Vec<SearchResult>, String> {
-    let mut results = Vec::new();
-    let mut queue = VecDeque::new();
+async fn search_directory(
+    window: tauri::Window,
+    folder_path: String,
+    search_term: String
+) -> Result<(), String> {
+    SEARCH_CANCELLED.store(false, Ordering::Relaxed); // Reset cancel flag
+
+    let mut queue = std::collections::VecDeque::new();
     queue.push_back(folder_path);
 
     while let Some(current_folder) = queue.pop_front() {
-        let entries = fs::read_dir(&current_folder).map_err(|e| e.to_string())?;
+        if SEARCH_CANCELLED.load(Ordering::Relaxed) {
+            return Ok(()); // Early return if canceled
+        }
+
+        let entries = std::fs::read_dir(&current_folder).map_err(|e| e.to_string())?;
 
         for entry in entries {
+            if SEARCH_CANCELLED.load(Ordering::Relaxed) {
+                return Ok(()); // Early return if canceled
+            }
+
             let entry = entry.map_err(|e| e.to_string())?;
             let path = entry.path();
-            let metadata = fs::metadata(&path).map_err(|e| e.to_string())?;
+            let metadata = std::fs::metadata(&path).map_err(|e| e.to_string())?;
 
             let name = entry.file_name().to_string_lossy().to_lowercase();
             if name.contains(&search_term.to_lowercase()) {
-                results.push(SearchResult {
+                let result = SearchResult {
                     name: entry.file_name().to_string_lossy().to_string(),
                     path: path.to_string_lossy().to_string(),
                     is_directory: metadata.is_dir(),
-                });
+                };
+                
+                window.emit("search_result", result.clone())
+                    .map_err(|e| e.to_string())?;
             }
 
             if metadata.is_dir() {
@@ -152,7 +173,13 @@ async fn search_directory(folder_path: String, search_term: String) -> Result<Ve
         }
     }
 
-    Ok(results)
+    Ok(())
+}
+
+#[tauri::command]
+fn cancel_search() -> Result<(), String> {
+    SEARCH_CANCELLED.store(true, Ordering::Relaxed);
+    Ok(())
 }
 
 fn main() {
@@ -165,6 +192,7 @@ fn main() {
             save_favorites,
             load_favorites,
             search_directory,
+            cancel_search,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
